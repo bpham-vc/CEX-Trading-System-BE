@@ -5,27 +5,31 @@ import dotenv from "dotenv";
 
 import authRouter from "./controllers/auth";
 import userRouter from "./controllers/user";
+import exchangeRouter from "./controllers/exchange";
+import tradeSettingRouter from "./controllers/tradeSetting";
 import { protect } from "./controllers/middleware";
 
 dotenv.config();
 
 const app = express();
 
+const API_VERSION_PREFIX = "/api/v1";
+
 // Middleware
 app.use(express.json());
 app.use(cors());
 
-app.use("/api/v1", authRouter);
+app.use(API_VERSION_PREFIX, authRouter);
 
-app.use("/api/v1", protect);
+app.use(API_VERSION_PREFIX, protect);
 
-app.use("/api/v1", userRouter);
+app.use(API_VERSION_PREFIX, userRouter);
+app.use(API_VERSION_PREFIX, exchangeRouter);
+app.use(API_VERSION_PREFIX, tradeSettingRouter);
 
 // Database Connection
-const MONGO_URI = process.env.MONGO_URI || "";
-
 mongoose
-  .connect(MONGO_URI)
+  .connect(process.env.MONGO_URI || "")
   .then(() => console.log("MongoDB Connected"))
   .catch((err) => console.error("MongoDB Connection Error:", err));
 

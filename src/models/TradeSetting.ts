@@ -22,6 +22,7 @@ const tradeSettingSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Exchange.projects",
     },
+    isActive: { type: Boolean, require: true },
     minOrderAmountInDollar: { type: Number, require: true },
     minOrderSizePercent: { type: Number, min: 0, max: 100, require: true },
     maxOrderSizePercent: {

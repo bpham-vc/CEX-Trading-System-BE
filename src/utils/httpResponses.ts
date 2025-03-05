@@ -62,10 +62,8 @@ export function serverError(res: Response, content?: any) {
   res.status(HttpStatusCodes.InternalServerError).json(content);
 }
 
-export function notFound(res: Response) {
-  res.status(HttpStatusCodes.NotFound).json({
-    errorMessage: "Resource does not exist",
-  });
+export function notFound(res: Response, content?: any) {
+  res.status(HttpStatusCodes.NotFound).json(content);
 }
 
 export function methodNotAllowed(res: Response, message: string) {
