@@ -52,3 +52,23 @@ export const addApiKey = async (req: Request, res: Response) => {
     badRequest(res, error);
   }
 };
+
+export const removeApiKey = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const user = await User.findById(req.user?._id);
+
+    if (!user) {
+      return badRequest(res, { message: "User not found" });
+    }
+
+    user.apiKeys.pull({ _id: id });
+
+    await user.save();
+
+    okay(res, { message: "Successfully removed" });
+  } catch (error) {
+    badRequest(res, error);
+  }
+};
