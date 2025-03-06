@@ -5,6 +5,8 @@ const projectSchema = new mongoose.Schema(
     _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
     name: { type: String, required: true },
     symbol: { type: String, required: true, unique: true, index: true },
+    tokenPrecision: { type: Number, required: true },
+    basePrecision: { type: Number, required: true },
   },
   { timestamps: true }
 );

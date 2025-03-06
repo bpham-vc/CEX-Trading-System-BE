@@ -11,6 +11,20 @@ export const getProjectSettings = async (req: Request, res: Response) => {
   okay(res, tradeSettings);
 };
 
+export const addTradeSetting = async (req: Request, res: Response) => {
+  const { projectId } = req.params;
+
+  try {
+    const tradeSetting = new TradeSetting({ projectId });
+
+    await tradeSetting.save();
+
+    okay(res, tradeSetting);
+  } catch (error) {
+    badRequest(res, error);
+  }
+};
+
 export const updateTradeSetting = async (req: Request, res: Response) => {
   const { id } = req.params;
 

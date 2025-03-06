@@ -9,6 +9,8 @@ import exchangeRouter from "./controllers/exchange";
 import tradeSettingRouter from "./controllers/tradeSetting";
 import { protect } from "./controllers/middleware";
 
+import "./services/websocketManager";
+
 dotenv.config();
 
 const app = express();

@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { Exchange } from "../../models/Exchange";
 import { TradeSetting } from "../../models/TradeSetting";
 import { badRequest, created, notFound, okay } from "../../utils/httpResponses";
+import { getExchangeInfo } from "../../services/mexc/rest";
 
 export const getAllExchanges = async (req: Request, res: Response) => {
   const user = req.user!;
@@ -62,22 +63,17 @@ export const addProjectToExchange = async (req: Request, res: Response) => {
       return badRequest(res, { message: `${symbol} symbol exist already` });
     }
 
-    exchange.projects.push({ name, symbol });
+    const { tokenPrecision, basePrecision } = await getExchangeInfo(
+      symbol.replace("_", "")
+    );
+
+    exchange.projects.push({ name, symbol, tokenPrecision, basePrecision });
 
     await exchange.save();
 
     const projectId = exchange.projects[exchange.projects.length - 1];
 
-    const tradeSetting = new TradeSetting({
-      projectId,
-      isActive: false,
-      minOrderAmountInDollar: 1,
-      minOrderSizePercent: 80,
-      maxOrderSizePercent: 100,
-      minTimeGap: 5,
-      priceSlippage: 0,
-      totalAmountToSell: 0,
-    });
+    const tradeSetting = new TradeSetting({ projectId });
 
     await tradeSetting.save();
 
