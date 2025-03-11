@@ -1,5 +1,8 @@
 import WebSocket from "ws";
 import { EventEmitter } from "events";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 import { MexcService } from "./mexc/websocket";
 
@@ -7,7 +10,7 @@ export const eventEmitter = new EventEmitter();
 
 import "./orderExecution";
 
-const wss = new WebSocket.Server({ port: 8080 });
+const wss = new WebSocket.Server({ port: Number(process.env.WS_PORT) });
 
 const exchangeServices = [new MexcService(eventEmitter)];
 
@@ -50,4 +53,6 @@ wss.on("connection", (ws) => {
   });
 });
 
-console.log("✅ WebSocket server running on ws://localhost:8080");
+console.log(
+  `✅ WebSocket server running on ws://localhost:${process.env.WS_PORT}`
+);
