@@ -27,10 +27,9 @@ export class MexcService {
       const symbol = `${message.s?.split("USDT")[0]}_USDT`;
 
       if (message.c?.includes("limit.depth.v3")) {
-        const asks = (message.d.asks || []).map((ask: any) => [
-          Number(ask.p),
-          Number(ask.v),
-        ]);
+        const asks = (message.d.asks || [])
+          .map((ask: any) => [Number(ask.p), Number(ask.v)])
+          .sort((a: [number, number], b: [number, number]) => b[0] - a[0]);
 
         const bids = (message.d.bids || []).map((bid: any) => [
           Number(bid.p),
@@ -39,6 +38,7 @@ export class MexcService {
 
         this.eventEmitter.emit("orderbook", {
           marketPrice: this.marketPrice,
+          symbol,
           exchange: "MEXC",
           orderbook: { asks, bids },
         });
@@ -57,6 +57,17 @@ export class MexcService {
             volume: Number(message.d.v),
             quoteVolume: Number(message.d.q),
             priceChangePercent: Number(message.d.r),
+          },
+        });
+      } else if (message.c?.includes("deals.v3")) {
+        this.eventEmitter.emit("trade", {
+          symbol,
+          exchange: "MEXC",
+          trade: {
+            price: Number(message.d.deals[0].p),
+            amount: Number(message.d.deals[0].v),
+            side: message.d.deals[0].S === 1 ? "buy" : "sell",
+            timestamp: message.d.deals[0].t,
           },
         });
       }
@@ -79,8 +90,8 @@ export class MexcService {
 
     const params = symbols.reduce<string[]>((acc, symbol) => {
       acc.push(
-        // `spot@public.deals.v3.api@${symbol}`,
-        `spot@public.limit.depth.v3.api@${symbol.replace("_", "")}@5`,
+        `spot@public.deals.v3.api@${symbol.replace("_", "")}`,
+        `spot@public.limit.depth.v3.api@${symbol.replace("_", "")}@10`,
         `spot@public.miniTicker.v3.api@${symbol.replace("_", "")}@UTC+8`
       );
 

@@ -4,6 +4,19 @@ import { generateSignature } from "../utils";
 
 const MEXC_BASE_URL = "https://api.mexc.com";
 
+export const getBalance = async (accessKey: string, secretKey: string) => {
+  const params = { timestamp: Date.now().toString() };
+  const queryString = new URLSearchParams(params).toString();
+  const signature = generateSignature(queryString, secretKey);
+
+  const response = await axios.get(`${MEXC_BASE_URL}/api/v3/account`, {
+    headers: { "X-MEXC-APIKEY": accessKey },
+    params: { ...params, signature: signature },
+  });
+
+  return response.data;
+};
+
 export const getExchangeInfo = async (symbol: string) => {
   const response = await axios.get(
     `${MEXC_BASE_URL}/api/v3/exchangeInfo?symbol=${symbol}`
@@ -57,10 +70,9 @@ export const createOrder = async (
       }
     );
 
-    return response.data;
+    return { success: true, data: response.data };
   } catch (error: any) {
-    console.log("MEXC - Create Order Error", error?.message);
-    return null;
+    return { success: false, error: error.response.data.msg };
   }
 };
 

@@ -65,13 +65,13 @@ const checkForTradingOpportunities = async (
 
     if (!user) return;
 
-    const apiKey = user.apiKeys.find(
+    const apiKeys = user.apiKeys.filter(
       (key) => key.exchangeId?.toString() === exchangeId
     );
 
-    if (!apiKey) return;
+    if (!apiKeys.length) return;
 
-    const { accessKey, secretKey } = apiKey;
+    const { accessKey, secretKey } = apiKeys[apiKeys.length - 1];
 
     const timeSinceLastTrade = Date.now() - Number(tradeSetting.lastTradeTime);
     const minDelay = tradeSetting.minTimeGap * 60 * 1000;
@@ -141,19 +141,29 @@ const checkForTradingOpportunities = async (
     //   return;
     // }
 
+    console.log(
+      "tradeSetting.totalAmountToSell",
+      tradeSetting.totalAmountToSell
+    );
+    console.log("tradeSetting.totalSoldAmount", tradeSetting.totalSoldAmount);
+    console.log("amount", amount);
+
     if (
       tradeSetting.totalAmountToSell &&
       tradeSetting.totalSoldAmount + amount > tradeSetting.totalAmountToSell
     ) {
       await TradeSetting.findByIdAndUpdate(tradeSetting._id, {
         isActive: false,
-        // lastTradeTime: 0,
+        lastTradeTime: 0,
         // totalSoldAmount: 0
       });
-      // this.emit("stopTradingSession", {
-      //   sessionId,
-      //   msg: "Reached Token Max Sell Amount",
-      // });
+
+      eventEmitter.emit("orderError", {
+        exchange,
+        symbol,
+        message: "Reached Token Max Sell Amount",
+      });
+
       return;
     }
 
@@ -180,15 +190,8 @@ const checkForTradingOpportunities = async (
       percentage,
       tradeSetting._id
     );
-
-    // // Continue checking for opportunities
-    // setTimeout(
-    //   () => this.checkForTradingOpportunities(sessionId),
-    //   minDelay
-    // );
   } catch (error) {
     console.error("Error checking trading opportunities:", error);
-    // setTimeout(() => this.checkForTradingOpportunities(sessionId), 1000);
   }
 };
 
@@ -219,30 +222,50 @@ const placeSellOrder = async (
 
     console.log("order response", response);
 
-    if (!response) return;
+    if (!response.success) {
+      await TradeSetting.findByIdAndUpdate(tradeSettingId, {
+        isActive: false,
+        lastTradeTime: 0,
+        // totalSoldAmount: 0
+      });
+
+      eventEmitter.emit("orderError", {
+        exchange,
+        symbol,
+        message: response.error,
+      });
+
+      return;
+    }
 
     await TradeSetting.findByIdAndUpdate(tradeSettingId, {
-      $inc: { totalSoldAmount: Number(response.origQty) },
+      $inc: { totalSoldAmount: Number(response.data.origQty) },
       $push: {
         trades: {
-          orderId: response.orderId,
+          orderId: response.data.orderId,
           exchange,
           symbol,
-          price: Number(response.price),
-          amount: Number(response.origQty),
+          price: Number(response.data.price),
+          amount: Number(response.data.origQty),
           side: "sell",
-          timestamp: response.transactTime,
+          timestamp: response.data.transactTime,
           percentage,
-          total: Number(response.price) * Number(response.origQty),
+          total: Number(response.data.price) * Number(response.data.origQty),
         },
       },
     });
 
-    // this.fetchBalances();
+    eventEmitter.emit("orderExecuted", {
+      exchange,
+      symbol,
+      price: Number(response.data.price),
+      amount: Number(response.data.origQty),
+      total: Number(response.data.price) * Number(response.data.origQty),
+    });
 
     setTimeout(() => {
       checkOrder(accessKey, secretKey, {
-        orderId: response.orderId,
+        orderId: response.data.orderId,
         symbol,
         timestamp: Date.now(),
       });

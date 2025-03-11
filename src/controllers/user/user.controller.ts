@@ -1,21 +1,20 @@
 import { Request, Response } from "express";
 
 import { User } from "../../models/User";
-import { badRequest, created, okay } from "../../utils/httpResponses";
+import { badRequest, okay } from "../../utils/httpResponses";
+import { Exchange } from "../../models/Exchange";
 
-export const index = async (req: Request, res: Response) => {
-  const users = await User.find();
+export const getApiKey = async (req: Request, res: Response) => {
+  const user = req.user!;
+  const { exchangeId } = req.params;
 
-  okay(res, users);
-};
+  const exchange = await Exchange.findById(exchangeId);
 
-export const create = async (req: Request, res: Response) => {
-  const { name, email } = req.body;
+  const apiKeys = user.apiKeys.filter(
+    (key) => key.exchangeId.toString() === exchange?._id.toString()
+  );
 
-  const newUser = new User({ name, email });
-  await newUser.save();
-
-  created(res, newUser);
+  okay(res, apiKeys);
 };
 
 export const addApiKey = async (req: Request, res: Response) => {

@@ -21,16 +21,26 @@ wss.on("connection", (ws) => {
 
     if (type === "subscribe") {
       console.log("🔔 User subscribed");
-      // ws.send(
-      //   JSON.stringify({
-      //     type: "confirmation",
-      //     message: `Subscribed to ${symbol}`,
-      //   })
-      // );
 
       // Listen for real-time data for the symbol
+      eventEmitter.on("orderbook", (data) => {
+        ws.send(JSON.stringify({ type: "orderbook", data }));
+      });
+
       eventEmitter.on("ticker", (data) => {
         ws.send(JSON.stringify({ type: "ticker", data }));
+      });
+
+      eventEmitter.on("trade", (data) => {
+        ws.send(JSON.stringify({ type: "trade", data }));
+      });
+
+      eventEmitter.on("orderError", (data) => {
+        ws.send(JSON.stringify({ type: "orderError", data }));
+      });
+
+      eventEmitter.on("orderExecuted", (data) => {
+        ws.send(JSON.stringify({ type: "orderExecuted", data }));
       });
     }
   });

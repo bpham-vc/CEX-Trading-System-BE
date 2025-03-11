@@ -1,11 +1,10 @@
 import express from "express";
 
-import { index, create, addApiKey, removeApiKey } from "./user.controller";
+import { getApiKey, addApiKey, removeApiKey } from "./user.controller";
 
 const router = express.Router();
 
-router.get("/user", index);
-router.post("/user", create);
+router.get("/user/apiKeys/:exchangeId", getApiKey);
 router.post("/user/addApiKey", addApiKey);
 router.delete("/user/removeApiKey/:id", removeApiKey);
 

@@ -21,10 +21,7 @@ export const register = async (req: Request, res: Response) => {
     const user = await User.create({ name, email, password });
 
     if (user) {
-      return created(res, {
-        ...user.toJSON(),
-        token: generateToken(user._id.toString()),
-      });
+      return created(res, user);
     }
 
     badRequest(res, { message: "Invalid user data" });
