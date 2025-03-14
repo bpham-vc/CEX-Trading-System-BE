@@ -4,17 +4,35 @@ import { generateSignature } from "../utils";
 
 const MEXC_BASE_URL = "https://api.mexc.com";
 
-export const getBalance = async (accessKey: string, secretKey: string) => {
+export const getBalance = async (
+  accessKey: string,
+  secretKey: string,
+  currency: string
+) => {
   const params = { timestamp: Date.now().toString() };
   const queryString = new URLSearchParams(params).toString();
   const signature = generateSignature(queryString, secretKey);
 
-  const response = await axios.get(`${MEXC_BASE_URL}/api/v3/account`, {
+  const { data: account } = await axios.get(`${MEXC_BASE_URL}/api/v3/account`, {
     headers: { "X-MEXC-APIKEY": accessKey },
     params: { ...params, signature: signature },
   });
 
-  return response.data;
+  const tokenBalance = account.balances.find((b: any) => b.asset === currency);
+  const baseBalance = account.balances.find((b: any) => b.asset === "USDT");
+
+  return {
+    token: tokenBalance || {
+      asset: currency,
+      free: "0",
+      locked: "0",
+    },
+    base: baseBalance || {
+      asset: "USDT",
+      free: "0",
+      locked: "0",
+    },
+  };
 };
 
 export const getExchangeInfo = async (symbol: string) => {
@@ -105,7 +123,7 @@ export const checkOrder = async (
       { headers: { "X-MEXC-APIKEY": accessKey } }
     );
 
-    console.log("check order response", response.data);
+    console.log("MEXC - Check Order Response", response.data);
 
     const isNotExecuted = response.data.status === "NEW";
 
@@ -116,7 +134,7 @@ export const checkOrder = async (
       { headers: { "X-MEXC-APIKEY": accessKey } }
     );
 
-    console.log("cancel order response", cancelOrderResponse.data);
+    console.log("MEXC - Cancel Order Response", cancelOrderResponse.data);
 
     return cancelOrderResponse.data;
   } catch (error: any) {

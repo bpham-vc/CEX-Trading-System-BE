@@ -5,6 +5,8 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { MexcService } from "./mexc/websocket";
+import { GateService } from "./gate/websocket";
+import { BitmartService } from "./bitmart/websocket";
 
 export const eventEmitter = new EventEmitter();
 
@@ -12,7 +14,11 @@ import "./orderExecution";
 
 const wss = new WebSocket.Server({ port: Number(process.env.WS_PORT) });
 
-const exchangeServices = [new MexcService(eventEmitter)];
+const exchangeServices = [
+  // new MexcService(eventEmitter),
+  // new GateService(eventEmitter),
+  new BitmartService(eventEmitter),
+];
 
 exchangeServices.forEach((service) => service.connect());
 

@@ -55,8 +55,6 @@ export class MexcService {
             high: Number(message.d.h),
             low: Number(message.d.l),
             volume: Number(message.d.v),
-            quoteVolume: Number(message.d.q),
-            priceChangePercent: Number(message.d.r),
           },
         });
       } else if (message.c?.includes("deals.v3")) {

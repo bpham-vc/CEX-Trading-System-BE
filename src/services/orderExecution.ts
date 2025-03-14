@@ -4,8 +4,9 @@ import { eventEmitter } from "./websocketManager";
 import { Exchange } from "../models/Exchange";
 import { ITradeSetting, TradeSetting } from "../models/TradeSetting";
 import { Orderbook } from "../interface/Orderbook";
-import { checkOrder, createOrder } from "./mexc/rest";
+import { ExchangeType } from "../interface/Exchange";
 import { User } from "../models/User";
+import { checkOrderMap, createOrderMap } from "./utils";
 
 eventEmitter.on("orderbook", async ({ marketPrice, exchange, orderbook }) => {
   const exchanges = await Exchange.find({ type: exchange });
@@ -54,7 +55,7 @@ const checkForTradingOpportunities = async (
   userId: string,
   exchangeId: string,
   symbol: string,
-  exchange: string,
+  exchange: ExchangeType,
   precision: number,
   orderbook: Orderbook,
   marketPrice: number | null,
@@ -96,7 +97,9 @@ const checkForTradingOpportunities = async (
       .sort((a, b) => b.price - a.price);
 
     if (!validOrders.length) {
-      console.log("No valid orders found, checking again in 1s...");
+      console.log(
+        `${exchange} - No valid orders found, checking again in 1s...`
+      );
       return;
     }
 
@@ -141,13 +144,6 @@ const checkForTradingOpportunities = async (
     //   return;
     // }
 
-    console.log(
-      "tradeSetting.totalAmountToSell",
-      tradeSetting.totalAmountToSell
-    );
-    console.log("tradeSetting.totalSoldAmount", tradeSetting.totalSoldAmount);
-    console.log("amount", amount);
-
     if (
       tradeSetting.totalAmountToSell &&
       tradeSetting.totalSoldAmount + amount > tradeSetting.totalAmountToSell
@@ -168,9 +164,9 @@ const checkForTradingOpportunities = async (
     }
 
     console.log(
-      `Executing trade: ${amount} @ $${bestOrder.price} (${percentage.toFixed(
-        2
-      )}% of ${bestOrder.amount})`
+      `${exchange} - Executing trade: ${amount} @ $${
+        bestOrder.price
+      } (${percentage.toFixed(2)}% of ${bestOrder.amount})`
     );
 
     // Update last trade time
@@ -191,7 +187,7 @@ const checkForTradingOpportunities = async (
       tradeSetting._id
     );
   } catch (error) {
-    console.error("Error checking trading opportunities:", error);
+    console.error(`${exchange} - Error checking trading opportunities:`, error);
   }
 };
 
@@ -199,28 +195,48 @@ const placeSellOrder = async (
   accessKey: string,
   secretKey: string,
   symbol: string,
-  exchange: string,
+  exchange: ExchangeType,
   price: number,
   amount: number,
   precision: number,
   percentage: number,
   tradeSettingId: ObjectId
 ) => {
-  const timestamp = Date.now();
+  let params: any = {};
 
-  const params = {
-    symbol: symbol,
-    side: "SELL",
-    type: "LIMIT",
-    quantity: amount.toString(),
-    price: price.toFixed(precision),
-    timestamp,
-  };
+  switch (exchange) {
+    case "MEXC":
+      params = {
+        symbol,
+        side: "SELL",
+        type: "LIMIT",
+        quantity: amount.toString(),
+        price: price.toFixed(precision),
+        timestamp: Date.now(),
+      };
+      break;
+
+    case "GATE":
+    case "BITMART":
+      params = {
+        symbol,
+        side: "sell",
+        type: "limit",
+        quantity: amount.toString(),
+        price: price.toFixed(precision),
+      };
+      break;
+
+    default:
+      break;
+  }
 
   try {
-    const response = await createOrder(accessKey, secretKey, params);
-
-    console.log("order response", response);
+    const response = await createOrderMap[exchange](
+      accessKey,
+      secretKey,
+      params
+    );
 
     if (!response.success) {
       await TradeSetting.findByIdAndUpdate(tradeSettingId, {
@@ -238,10 +254,11 @@ const placeSellOrder = async (
       return;
     }
 
-    await TradeSetting.findByIdAndUpdate(tradeSettingId, {
-      $inc: { totalSoldAmount: Number(response.data.origQty) },
-      $push: {
-        trades: {
+    let trade: any = {};
+
+    switch (exchange) {
+      case "MEXC":
+        trade = {
           orderId: response.data.orderId,
           exchange,
           symbol,
@@ -251,26 +268,62 @@ const placeSellOrder = async (
           timestamp: response.data.transactTime,
           percentage,
           total: Number(response.data.price) * Number(response.data.origQty),
-        },
-      },
+        };
+        break;
+
+      case "GATE":
+        trade = {
+          orderId: response.data.id,
+          exchange,
+          symbol,
+          price: Number(response.data.price),
+          amount: Number(response.data.amount),
+          side: "sell",
+          timestamp: response.data.create_time_ms,
+          percentage,
+          total: Number(response.data.price) * Number(response.data.amount),
+        };
+        break;
+
+      case "BITMART":
+        trade = {
+          orderId: response.data.order_id,
+          exchange,
+          symbol,
+          price,
+          amount,
+          side: "sell",
+          timestamp: Date.now(),
+          percentage,
+          total: price * amount,
+        };
+        break;
+
+      default:
+        break;
+    }
+
+    await TradeSetting.findByIdAndUpdate(tradeSettingId, {
+      $inc: { totalSoldAmount: trade.amount },
+      $push: { trades: trade },
     });
 
     eventEmitter.emit("orderExecuted", {
       exchange,
       symbol,
-      price: Number(response.data.price),
-      amount: Number(response.data.origQty),
-      total: Number(response.data.price) * Number(response.data.origQty),
+      price: trade.price,
+      amount: trade.amount,
+      total: trade.total,
     });
 
     setTimeout(() => {
-      checkOrder(accessKey, secretKey, {
-        orderId: response.data.orderId,
+      checkOrderMap[exchange](accessKey, secretKey, {
+        orderId: trade.orderId,
         symbol,
         timestamp: Date.now(),
       });
     }, 3000);
   } catch (error) {
-    console.error("Error placing sell order:", error);
+    console.error(`${exchange} - Error placing sell order:`, error);
   }
 };

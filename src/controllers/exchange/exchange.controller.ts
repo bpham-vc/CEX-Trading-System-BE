@@ -1,10 +1,11 @@
 import { Request, Response } from "express";
 
+import { User } from "../../models/User";
 import { Exchange } from "../../models/Exchange";
 import { TradeSetting } from "../../models/TradeSetting";
 import { badRequest, created, notFound, okay } from "../../utils/httpResponses";
-import { getBalance, getExchangeInfo } from "../../services/mexc/rest";
-import { User } from "../../models/User";
+import { getExchangeInfoMap } from "../../services/utils";
+import { getProjectBalanceMap } from "../../services/utils";
 
 export const getAllExchanges = async (req: Request, res: Response) => {
   const user = req.user!;
@@ -80,35 +81,20 @@ export const getProjectBalance = async (req: Request, res: Response) => {
     (key) => key.exchangeId?.toString() === exchangeId
   );
 
-  if (!apiKeys.length) return;
+  if (!apiKeys.length) {
+    return notFound(res, { message: "API Key not found" });
+  }
 
   const { accessKey, secretKey } = apiKeys[apiKeys.length - 1];
 
   try {
-    if (exchange.type === "MEXC") {
-      const balanceResponse = await getBalance(accessKey, secretKey);
+    const balance = await getProjectBalanceMap[exchange.type](
+      accessKey,
+      secretKey,
+      project.name
+    );
 
-      const tokenBalance = balanceResponse.balances.find(
-        (b: any) => b.asset === project.name
-      );
-
-      const baseBalance = balanceResponse.balances.find(
-        (b: any) => b.asset === "USDT"
-      );
-
-      okay(res, {
-        token: tokenBalance || {
-          asset: project.name,
-          free: "0",
-          locked: "0",
-        },
-        base: baseBalance || {
-          asset: "USDT",
-          free: "0",
-          locked: "0",
-        },
-      });
-    }
+    okay(res, balance);
   } catch (error: any) {
     badRequest(res, error.response.data.msg);
   }
@@ -131,9 +117,9 @@ export const addProjectToExchange = async (req: Request, res: Response) => {
       return badRequest(res, { message: `${symbol} symbol exist already` });
     }
 
-    const { tokenPrecision, basePrecision } = await getExchangeInfo(
-      symbol.replace("_", "")
-    );
+    const { tokenPrecision, basePrecision } = await getExchangeInfoMap[
+      exchange.type
+    ](exchange.type === "MEXC" ? symbol.replace("_", "") : symbol);
 
     exchange.projects.push({ name, symbol, tokenPrecision, basePrecision });
 
